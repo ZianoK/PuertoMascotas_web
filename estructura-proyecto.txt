@@ -1,0 +1,70 @@
+PuertoMascotas/
+│
+├── 📄 README.md                           ← Documentación técnica completa
+├── 📄 INSTRUCCIONES-RAPIDAS.md            ← Guía de inicio rápido
+├── 📄 TODO-CLIENTE.md                     ← Checklist del cliente
+├── 📄 ENTREGA-FASE-1.md                   ← Resumen de entrega
+│
+├── 🔧 backend/                            ← API FastAPI
+│   ├── main.py                            ← Punto de entrada + seed
+│   ├── database.py                        ← Config SQLite + SQLAlchemy
+│   ├── models.py                          ← Modelos de datos
+│   ├── schemas.py                         ← Schemas Pydantic
+│   ├── routers/
+│   │   ├── categories.py                  ← GET /api/categories
+│   │   ├── products.py                    ← GET /api/products[/{id}]
+│   │   └── orders.py                      ← POST/GET /api/orders[/{id}]
+│   ├── requirements.txt                   ← Dependencias Python
+│   ├── env.example                        ← Template .env
+│   └── gitignore                          ← Git ignore
+│
+└── 🎨 frontend/                           ← Next.js 14 App
+    ├── app/
+    │   ├── layout.tsx                     ← Layout raíz
+    │   ├── page.tsx                       ← Home
+    │   ├── globals.css                    ← Estilos base
+    │   ├── productos/
+    │   │   ├── page.tsx                   ← Catálogo
+    │   │   └── [id]/page.tsx              ← Detalle producto
+    │   ├── carrito/page.tsx               ← Carrito
+    │   ├── checkout/page.tsx              ← Checkout
+    │   └── confirmacion/page.tsx          ← Confirmación
+    ├── components/
+    │   ├── Navbar.tsx                     ← Barra de navegación
+    │   ├── Footer.tsx                     ← Pie de página
+    │   ├── ProductCard.tsx                ← Tarjeta de producto
+    │   └── CategoryFilter.tsx             ← Filtro categorías
+    ├── lib/
+    │   ├── api.ts                         ← Cliente API
+    │   └── cartStore.ts                   ← Store Zustand
+    ├── package.json                       ← Dependencias Node
+    ├── tsconfig.json                      ← Config TypeScript
+    ├── tailwind.config.ts                 ← Config Tailwind
+    ├── postcss.config.mjs                 ← Config PostCSS
+    ├── next.config.ts                     ← Config Next.js
+    ├── env.local.example                  ← Template .env.local
+    └── gitignore                          ← Git ignore
+
+📊 Base de Datos (SQLite):
+  └── puerto_mascotas.db (se crea automáticamente)
+      ├── categories         (6 registros iniciales)
+      ├── products          (18 registros de ejemplo)
+      ├── orders            (vacío)
+      └── order_items       (vacío)
+
+🌐 URLs (desarrollo local):
+  Frontend:  http://localhost:3000
+  Backend:   http://localhost:8000
+  API Docs:  http://localhost:8000/docs
+  ReDoc:     http://localhost:8000/redoc
+
+🎨 Paleta de Colores:
+  Primary:    #2D7D46 (verde naturaleza)
+  Secondary:  #F5A623 (naranja cálido)
+  Background: #FAFAFA
+  Text:       #1A1A1A
+
+📦 Tecnologías:
+  Backend:   Python 3.11+, FastAPI, SQLAlchemy, Pydantic
+  Frontend:  Next.js 14, React 18, TypeScript, Tailwind, Zustand
+  Deploy:    Render (backend) + Vercel (frontend)
