@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from database import engine, SessionLocal, Base
 import models
-from routers import products, categories, orders, admin, banners
+from routers import products, categories, orders, admin, banners, webhooks
 
 load_dotenv()
 
@@ -18,10 +18,27 @@ def create_tables():
     Base.metadata.create_all(bind=engine)
 
 
+def migrate_db():
+    """Agrega columnas nuevas a tablas existentes (idempotente)."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for col, col_type in [("preference_id", "VARCHAR(200)"), ("mp_init_point", "VARCHAR(500)"), ("updated_at", "TIMESTAMPTZ")]:
+            try:
+                conn.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+
+
 def seed_initial_data():
     """Crea datos iniciales si la base de datos está vacía"""
     db = SessionLocal()
     try:
+        # Verificar si ya hay productos reales (activos)
+        existing_products = db.query(models.Product).filter(models.Product.active == True).count()
+        if existing_products > 0:
+            print("Base de datos ya tiene productos, saltando seed...")
+            return
         # Verificar si ya hay categorías
         existing_categories = db.query(models.Category).count()
         if existing_categories > 0:
@@ -99,12 +116,37 @@ def seed_initial_data():
         db.close()
 
 
+def seed_admin_user():
+    """Crea el usuario admin por defecto si no existe"""
+    from auth import hash_password
+    db = SessionLocal()
+    try:
+        existing = db.query(models.AdminUser).first()
+        if existing:
+            return
+        admin = models.AdminUser(
+            email=os.getenv("ADMIN_EMAIL", "admin@puertomascotas.com"),
+            hashed_password=hash_password(os.getenv("ADMIN_PASSWORD", "PuertoMascotas2026!")),
+            name="Admin",
+        )
+        db.add(admin)
+        db.commit()
+        print(f"Admin user creado: {admin.email}")
+    except Exception as e:
+        print(f"Error al crear admin: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan para inicialización y limpieza"""
     # Startup
     create_tables()
+    migrate_db()
     seed_initial_data()
+    seed_admin_user()
     yield
     # Shutdown (si se necesita limpiar recursos)
 
@@ -123,6 +165,7 @@ app.add_middleware(
     allow_origins=[
         frontend_url,
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://*.vercel.app"
     ],
     allow_credentials=True,
@@ -139,6 +182,7 @@ app.include_router(products.router)
 app.include_router(categories.router)
 app.include_router(orders.router)
 app.include_router(banners.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/")
@@ -153,3 +197,8 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

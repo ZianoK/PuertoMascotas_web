@@ -19,6 +19,7 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), nullable=True)
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False, default=0.0)
@@ -46,7 +47,10 @@ class Order(Base):
     payment_method = Column(String(50), nullable=False)
     status = Column(String(50), nullable=False, default="pendiente")
     notes = Column(Text, nullable=True)
+    preference_id = Column(String(200), nullable=True)
+    mp_init_point = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     items = relationship("OrderItem", back_populates="order")
 
@@ -62,6 +66,17 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(200), unique=True, nullable=False, index=True)
+    hashed_password = Column(String(200), nullable=False)
+    name = Column(String(200), nullable=False)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class Banner(Base):

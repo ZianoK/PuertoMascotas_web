@@ -1,7 +1,12 @@
 "use client";
 
 import { useCartStore } from "@/lib/cartStore";
+import { checkStock, StockCheckResult } from "@/lib/api";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ShoppingBag, Minus, Plus, Trash2, ArrowRight, Package, ImageOff, AlertTriangle, Truck } from "lucide-react";
+
+const SHIPPING_COST = 2500;
 
 export default function CarritoPage() {
   const items = useCartStore((state) => state.items);
@@ -9,20 +14,51 @@ export default function CarritoPage() {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const getTotal = useCartStore((state) => state.getTotal());
 
+  const [stockIssues, setStockIssues] = useState<Map<number, StockCheckResult>>(new Map());
+  const [checking, setChecking] = useState(false);
+
+  // Verificar stock al cargar y al cambiar items
+  useEffect(() => {
+    if (items.length === 0) return;
+    const verify = async () => {
+      setChecking(true);
+      try {
+        const results = await checkStock(items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })));
+        const issues = new Map<number, StockCheckResult>();
+        for (const r of results) {
+          if (!r.available) issues.set(r.product_id, r);
+        }
+        setStockIssues(issues);
+      } catch {
+        // silently fail
+      } finally {
+        setChecking(false);
+      }
+    };
+    verify();
+  }, [items]);
+
+  const subtotal = getTotal;
+  const total = subtotal + SHIPPING_COST;
+  const hasStockIssues = stockIssues.size > 0;
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="max-w-md mx-auto px-4 text-center">
-          <div className="text-8xl mb-6">🛒</div>
-          <h1 className="text-3xl font-bold mb-4 text-textDark">Tu carrito está vacío</h1>
-          <p className="text-textSecondary mb-8 text-lg">
-            Agregá productos para comenzar tu pedido
+        <div className="max-w-sm mx-auto px-4 text-center">
+          <div className="w-20 h-20 bg-cloud-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ShoppingBag className="w-8 h-8 text-cloud-400" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-2xl font-extrabold mb-3 text-textDark tracking-tight">Tu carrito esta vacio</h1>
+          <p className="text-textSecondary mb-8 text-sm">
+            Agrega productos para comenzar tu pedido
           </p>
           <Link
             href="/productos"
-            className="inline-block bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-primary-dark transition-all hover:scale-105"
+            className="inline-flex items-center space-x-2 bg-textDark text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-textDark/90 transition-all"
           >
-            Ver productos
+            <span>Ver productos</span>
+            <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
@@ -31,140 +67,144 @@ export default function CarritoPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-8 text-textDark">
-          Carrito de compras
-        </h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-8">
+          <p className="text-primary font-semibold text-sm uppercase tracking-widest mb-2">Tu pedido</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-textDark tracking-tight">
+            Carrito de compras
+          </h1>
+        </div>
+
+        {hasStockIssues && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-6 flex items-start space-x-2 text-sm">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>Algunos productos superan el stock disponible. Ajusta las cantidades para continuar.</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Lista de items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item, index) => (
-              <div
-                key={item.product_id}
-                className="bg-white rounded-xl shadow-md p-4 md:p-6 flex items-center space-x-4 fade-in-up"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                {/* Imagen */}
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-gray-50 rounded-lg flex items-center justify-center flex-shrink-0 p-2">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-10 h-10 text-gray-300"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-base md:text-lg text-textDark truncate">
-                    {item.name}
-                  </h3>
-                  <p className="text-primary font-bold text-lg">
-                    ${item.price.toLocaleString("es-AR")}
-                  </p>
-                  <p className="text-sm text-textSecondary">
-                    Subtotal: ${(item.price * item.quantity).toLocaleString("es-AR")}
-                  </p>
-                </div>
-
-                {/* Cantidad */}
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                    className="bg-gray-100 text-textDark w-8 h-8 rounded-lg hover:bg-primary hover:text-white transition-colors font-bold"
-                  >
-                    -
-                  </button>
-                  <span className="text-lg font-bold w-8 text-center">
-                    {item.quantity}
-                  </span>
-                  <button
-                    onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                    className="bg-gray-100 text-textDark w-8 h-8 rounded-lg hover:bg-primary hover:text-white transition-colors font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-
-                {/* Eliminar */}
-                <button
-                  onClick={() => removeItem(item.product_id)}
-                  className="text-red-500 hover:text-red-700 transition-colors p-2"
-                  aria-label="Eliminar producto"
+          {/* Items */}
+          <div className="lg:col-span-2 space-y-3">
+            {items.map((item, index) => {
+              const issue = stockIssues.get(item.product_id);
+              return (
+                <div
+                  key={item.product_id}
+                  className={`bg-white rounded-xl border p-4 md:p-5 flex items-center space-x-4 fade-in-up ${
+                    issue ? "border-amber-300 bg-amber-50/30" : "border-cloud-200/60"
+                  }`}
+                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="w-6 h-6"
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-cloud-50 rounded-lg flex items-center justify-center shrink-0 p-2">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <ImageOff className="w-8 h-8 text-cloud-300" strokeWidth={1} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm text-textDark truncate">{item.name}</h3>
+                    <p className="text-textDark font-bold text-base">${item.price.toLocaleString("es-AR")}</p>
+                    {issue && (
+                      <p className="text-xs text-amber-600 font-medium mt-0.5">
+                        Stock disponible: {issue.stock}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                      className="w-8 h-8 rounded-lg bg-cloud-50 border border-cloud-200/60 flex items-center justify-center hover:bg-cloud-100 transition-colors"
+                    >
+                      <Minus className="w-3.5 h-3.5 text-textDark" />
+                    </button>
+                    <span className={`text-sm font-bold w-8 text-center ${issue ? "text-amber-600" : "text-textDark"}`}>
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                      className="w-8 h-8 rounded-lg bg-cloud-50 border border-cloud-200/60 flex items-center justify-center hover:bg-cloud-100 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-textDark" />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => removeItem(item.product_id)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-cloud-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                    aria-label="Eliminar producto"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Resumen */}
+          {/* Receipt / Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-md p-6 sticky top-24">
-              <h2 className="text-xl font-bold mb-6 text-textDark">Resumen del pedido</h2>
+            <div className="bg-white rounded-xl border border-cloud-200/60 p-6 sticky top-28">
+              <h2 className="text-base font-bold mb-5 text-textDark">Resumen del pedido</h2>
 
-              <div className="space-y-3 mb-6 pb-6 border-b border-gray-200">
-                <div className="flex justify-between">
-                  <span className="text-textSecondary">Subtotal</span>
-                  <span className="font-bold text-textDark">
-                    ${getTotal.toLocaleString("es-AR")}
-                  </span>
+              {/* Itemized receipt */}
+              <div className="space-y-2 mb-4 pb-4 border-b border-cloud-100">
+                {items.map((item) => (
+                  <div key={item.product_id} className="flex justify-between text-xs">
+                    <span className="text-textSecondary truncate max-w-[55%]">
+                      {item.name} <span className="text-cloud-400">x{item.quantity}</span>
+                    </span>
+                    <span className="font-medium text-textDark">
+                      ${(item.price * item.quantity).toLocaleString("es-AR")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-2.5 mb-5 pb-5 border-b border-cloud-100">
+                <div className="flex justify-between text-sm">
+                  <span className="text-textSecondary">Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} productos)</span>
+                  <span className="font-semibold text-textDark">${subtotal.toLocaleString("es-AR")}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-textSecondary">Envío</span>
-                  <span className="text-sm text-textSecondary">A coordinar</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-textSecondary flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5" />
+                    Envio
+                  </span>
+                  <span className="font-semibold text-textDark">${SHIPPING_COST.toLocaleString("es-AR")}</span>
                 </div>
               </div>
 
-              <div className="mb-6">
-                <div className="flex justify-between mb-6">
-                  <span className="text-xl font-bold text-textDark">Total</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ${getTotal.toLocaleString("es-AR")}
-                  </span>
-                </div>
-
-                <Link
-                  href="/checkout"
-                  className="block w-full bg-secondary text-white text-center px-8 py-4 rounded-xl font-bold hover:bg-secondary-dark transition-all hover:scale-105 shadow-md"
-                >
-                  Ir al checkout
-                </Link>
+              <div className="flex justify-between mb-6">
+                <span className="text-base font-bold text-textDark">Total</span>
+                <span className="text-xl font-extrabold text-textDark">${total.toLocaleString("es-AR")}</span>
               </div>
 
-              <div className="bg-primary/5 rounded-lg p-4">
-                <p className="text-xs text-textSecondary text-center leading-relaxed">
-                  📦 Coordinamos la entrega y el método de pago después de confirmar el pedido
+              <Link
+                href={hasStockIssues ? "#" : "/checkout"}
+                onClick={(e) => hasStockIssues && e.preventDefault()}
+                className={`flex items-center justify-center space-x-2 w-full px-6 py-3.5 rounded-xl font-bold text-sm transition-all ${
+                  hasStockIssues
+                    ? "bg-cloud-200 text-cloud-400 cursor-not-allowed"
+                    : "bg-primary text-white hover:bg-primary-dark"
+                }`}
+              >
+                <span>Comprar</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              {hasStockIssues && (
+                <p className="text-[11px] text-amber-600 mt-3 text-center font-medium">
+                  Ajusta las cantidades marcadas para continuar
+                </p>
+              )}
+
+              <div className="mt-4 bg-cloud-50 rounded-lg p-3 flex items-start space-x-2">
+                <Package className="w-4 h-4 text-cloud-400 mt-0.5 shrink-0" />
+                <p className="text-[11px] text-textSecondary leading-relaxed">
+                  Envio a todo el Gran Mendoza. Te contactamos por WhatsApp para coordinar la entrega.
                 </p>
               </div>
             </div>

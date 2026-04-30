@@ -1,16 +1,39 @@
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from io import BytesIO
 import openpyxl
 import re
 
 from database import get_db
 import models
+from auth import verify_password, create_access_token, get_current_admin
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
 )
+
+
+# ---- Auth ----
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/login")
+def admin_login(req: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.AdminUser).filter(
+        models.AdminUser.email == req.email,
+        models.AdminUser.active == True,
+    ).first()
+
+    if not user or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+
+    token = create_access_token({"sub": user.email})
+    return {"access_token": token, "token_type": "bearer", "name": user.name}
 
 
 def _parse_price(value) -> float:
@@ -45,7 +68,7 @@ def _slugify_simple(text: str) -> str:
 
 
 @router.post("/products/upload")
-async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="El archivo debe ser un Excel (.xlsx o .xls)")
 
@@ -74,6 +97,9 @@ async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get
             "precio ref.": "precio",
             "precio ref": "precio",
             "stock": "stock",
+            "cantidad": "stock",
+            "cant": "stock",
+            "cant.": "stock",
         }
 
         for sheet in wb.worksheets:
@@ -109,6 +135,7 @@ async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get
                                 return str(v).strip() if v is not None else default
                             return default
 
+                        code = get_col("codigo") or ""
                         cat_name = get_col("categoria", "General") or "General"
                         marca = get_col("marca", "") or ""
                         producto = get_col("producto", "") or ""
@@ -137,6 +164,7 @@ async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get
                                 pass
 
                     else:
+                        code = ""
                         texts = []
                         price = 0.0
                         stock = 0
@@ -184,11 +212,14 @@ async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get
                         db_product.price = price
                         if stock > 0:
                             db_product.stock = stock
+                        if code:
+                            db_product.code = code[:50]
                         db_product.category_id = cat_id
                         products_updated += 1
                     else:
                         db_product = models.Product(
                             name=name[:200],
+                            code=code[:50] if code else None,
                             description=f"Importado desde catálogo. Categoría: {cat_name}",
                             price=price,
                             cost=0.0,
@@ -224,12 +255,13 @@ async def upload_catalog(file: UploadFile = File(...), db: Session = Depends(get
 
 
 @router.get("/products")
-def get_admin_products(db: Session = Depends(get_db)):
+def get_admin_products(db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     products = db.query(models.Product).all()
     result = []
     for p in products:
         result.append({
             "id": p.id,
+            "code": p.code or "",
             "name": p.name,
             "price": p.price,
             "original_price": p.original_price,
@@ -240,7 +272,7 @@ def get_admin_products(db: Session = Depends(get_db)):
 
 
 @router.delete("/products/{id}")
-def delete_product(id: int, db: Session = Depends(get_db)):
+def delete_product(id: int, db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     product = db.query(models.Product).filter(models.Product.id == id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -249,18 +281,34 @@ def delete_product(id: int, db: Session = Depends(get_db)):
     return {"message": "Product deleted"}
 
 
-from pydantic import BaseModel
+class StockRequest(BaseModel):
+    stock: int
 
 
 class DiscountRequest(BaseModel):
     new_price: float
 
 
-@router.put("/products/{id}/discount")
-def apply_discount(id: int, req: DiscountRequest, db: Session = Depends(get_db)):
+@router.put("/products/{id}/stock")
+def update_stock(id: int, req: StockRequest, db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     product = db.query(models.Product).filter(models.Product.id == id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    product.stock = req.stock
+    db.commit()
+    return {"message": "Stock updated", "stock": product.stock}
+
+
+@router.put("/products/{id}/discount")
+def apply_discount(id: int, req: DiscountRequest, db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
+    product = db.query(models.Product).filter(models.Product.id == id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if req.new_price <= 0:
+        raise HTTPException(status_code=400, detail="El precio debe ser mayor a 0")
+    if req.new_price >= product.price:
+        raise HTTPException(status_code=400, detail="El precio con descuento debe ser menor al precio actual")
 
     if not product.original_price:
         product.original_price = product.price

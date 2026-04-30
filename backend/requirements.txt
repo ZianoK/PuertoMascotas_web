@@ -4,3 +4,7 @@ sqlalchemy
 pydantic
 python-multipart
 python-dotenv
+openpyxl
+psycopg2-binary
+python-jose[cryptography]
+bcrypt

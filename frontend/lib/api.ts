@@ -1,17 +1,20 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export interface Category {
   id: number;
   name: string;
   slug: string;
   active: boolean;
+  product_count: number;
 }
 
 export interface Product {
   id: number;
+  code: string | null;
   name: string;
   description: string | null;
   price: number;
+  original_price: number | null;
   cost: number;
   stock: number;
   category_id: number;
@@ -55,7 +58,10 @@ export interface Order {
   payment_method: string;
   status: string;
   notes: string | null;
+  preference_id: string | null;
+  mp_init_point: string | null;
   created_at: string;
+  updated_at: string | null;
   items: OrderItemWithProduct[];
 }
 
@@ -68,7 +74,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  const response = await fetch(`${API_URL}/api/categories`);
+  const response = await fetch(`${API_URL}/api/categories/`, { cache: 'no-store' });
   return handleResponse<Category[]>(response);
 }
 
@@ -77,18 +83,49 @@ export async function getProducts(categorySlug?: string, search?: string): Promi
   if (categorySlug) params.append("category_slug", categorySlug);
   if (search) params.append("search", search);
 
-  const url = `${API_URL}/api/products${params.toString() ? `?${params.toString()}` : ""}`;
-  const response = await fetch(url);
+  const url = `${API_URL}/api/products/${params.toString() ? `?${params.toString()}` : ""}`;
+  const response = await fetch(url, { cache: 'no-store' });
   return handleResponse<Product[]>(response);
 }
 
 export async function getProduct(id: number): Promise<Product> {
-  const response = await fetch(`${API_URL}/api/products/${id}`);
+  const response = await fetch(`${API_URL}/api/products/${id}/`, { cache: 'no-store' });
   return handleResponse<Product>(response);
 }
 
+export interface StockCheckResult {
+  product_id: number;
+  available: boolean;
+  stock: number;
+  requested: number;
+  name: string;
+}
+
+export async function checkStock(items: { product_id: number; quantity: number }[]): Promise<StockCheckResult[]> {
+  const response = await fetch(`${API_URL}/api/products/check-stock`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+  return handleResponse<StockCheckResult[]>(response);
+}
+
+export async function getOrders(): Promise<Order[]> {
+  const response = await fetch(`${API_URL}/api/orders/`);
+  return handleResponse<Order[]>(response);
+}
+
+export async function updateOrderStatus(id: number, status: string): Promise<any> {
+  const response = await fetch(`${API_URL}/api/orders/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse<any>(response);
+}
+
 export async function createOrder(orderData: OrderCreate): Promise<Order> {
-  const response = await fetch(`${API_URL}/api/orders`, {
+  const response = await fetch(`${API_URL}/api/orders/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -99,7 +136,7 @@ export async function createOrder(orderData: OrderCreate): Promise<Order> {
 }
 
 export async function getOrder(id: number): Promise<Order> {
-  const response = await fetch(`${API_URL}/api/orders/${id}`);
+  const response = await fetch(`${API_URL}/api/orders/${id}/`);
   return handleResponse<Order>(response);
 }
 
@@ -113,14 +150,14 @@ export interface Banner {
 }
 
 export async function getBanners(): Promise<Banner[]> {
-  const response = await fetch(`${API_URL}/api/banners`);
+  const response = await fetch(`${API_URL}/api/banners/`);
   return handleResponse<Banner[]>(response);
 }
 
 export async function uploadBanner(file: File): Promise<Banner> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch(`${API_URL}/admin/banners`, {
+  const response = await fetch(`${API_URL}/admin/banners/`, {
     method: "POST",
     body: formData,
   });
@@ -128,41 +165,8 @@ export async function uploadBanner(file: File): Promise<Banner> {
 }
 
 export async function deleteBanner(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/admin/banners/${id}`, {
+  const response = await fetch(`${API_URL}/admin/banners/${id}/`, {
     method: "DELETE",
   });
   return handleResponse<void>(response);
-}
-
-// Admin Products API
-export interface AdminProduct {
-  id: number;
-  name: string;
-  price: number;
-  original_price: number | null;
-  stock: number;
-  category: string;
-}
-
-export async function getAdminProducts(): Promise<AdminProduct[]> {
-  const response = await fetch(`${API_URL}/admin/products`);
-  return handleResponse<AdminProduct[]>(response);
-}
-
-export async function deleteProduct(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/admin/products/${id}`, {
-    method: "DELETE",
-  });
-  return handleResponse<void>(response);
-}
-
-export async function applyProductDiscount(id: number, newPrice: number): Promise<any> {
-  const response = await fetch(`${API_URL}/admin/products/${id}/discount`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ new_price: newPrice }),
-  });
-  return handleResponse<any>(response);
 }

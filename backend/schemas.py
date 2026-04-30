@@ -21,6 +21,10 @@ class Category(CategoryBase):
         from_attributes = True
 
 
+class CategoryWithCount(Category):
+    product_count: int = 0
+
+
 # Product Schemas
 class ProductBase(BaseModel):
     name: str
@@ -107,7 +111,10 @@ class Order(OrderBase):
     id: int
     total: float
     status: str
+    preference_id: Optional[str] = None
+    mp_init_point: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

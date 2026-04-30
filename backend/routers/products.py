@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 import models
 import schemas
 from database import get_db
@@ -50,3 +51,40 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     return product
+
+
+class StockCheckItem(BaseModel):
+    product_id: int
+    quantity: int
+
+
+class StockCheckRequest(BaseModel):
+    items: List[StockCheckItem]
+
+
+@router.post("/check-stock")
+def check_stock(req: StockCheckRequest, db: Session = Depends(get_db)):
+    """Verifica disponibilidad de stock para una lista de productos."""
+    results = []
+    for item in req.items:
+        product = db.query(models.Product).filter(
+            models.Product.id == item.product_id,
+            models.Product.active == True
+        ).first()
+        if not product:
+            results.append({
+                "product_id": item.product_id,
+                "available": False,
+                "stock": 0,
+                "requested": item.quantity,
+                "name": "Producto no encontrado",
+            })
+        else:
+            results.append({
+                "product_id": item.product_id,
+                "available": product.stock >= item.quantity,
+                "stock": product.stock,
+                "requested": item.quantity,
+                "name": product.name,
+            })
+    return results

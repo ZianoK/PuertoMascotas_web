@@ -8,6 +8,7 @@ from uuid import uuid4
 import schemas
 import models
 from database import get_db
+from auth import get_current_admin
 
 router = APIRouter(tags=["banners"])
 
@@ -21,7 +22,7 @@ def get_banners(db: Session = Depends(get_db)):
 
 
 @router.post("/admin/banners")
-async def upload_banner(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_banner(file: UploadFile = File(...), db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
         raise HTTPException(status_code=400, detail="Formato de imagen no soportado")
     
@@ -47,7 +48,7 @@ async def upload_banner(file: UploadFile = File(...), db: Session = Depends(get_
 
 
 @router.delete("/admin/banners/{id}")
-def delete_banner(id: int, db: Session = Depends(get_db)):
+def delete_banner(id: int, db: Session = Depends(get_db), admin: models.AdminUser = Depends(get_current_admin)):
     banner = db.query(models.Banner).filter(models.Banner.id == id).first()
     if not banner:
         raise HTTPException(status_code=404, detail="Banner no encontrado")

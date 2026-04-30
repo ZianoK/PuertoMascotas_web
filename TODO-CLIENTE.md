@@ -198,7 +198,7 @@ Cuando esté listo el panel admin (Fase 2):
 ## Formato de Entrega
 
 Toda esta información puede enviarse por:
-- Email a: [TODO: email de Soluway]
+- Email a: soluway.group@gmail.com
 - Google Drive (carpeta compartida)
 - WhatsApp (para consultas rápidas)
 
@@ -208,4 +208,4 @@ Toda esta información puede enviarse por:
 
 ## Contacto
 
-Equipo Soluway — [TODO: agregar datos de contacto]
+Equipo Soluway — soluway.group@gmail.com | soluway.com.ar

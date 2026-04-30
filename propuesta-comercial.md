@@ -228,9 +228,8 @@ Para avanzar:
 Soluway construye software a medida para PyMEs que quieren escalar sin explotar operativamente. Nos especializamos en automatización conversacional, integraciones con sistemas existentes y desarrollo ágil con entregas iterativas.
 
 **Contacto:**
-Tiziano — [contacto de Tiziano]
-[Email de Soluway]
-[Web de Soluway]
+Tiziano — soluway.group@gmail.com
+Web: soluway.com.ar
 
 ---
 
